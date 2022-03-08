@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Remote</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        padding: 0;
+        margin: 0;
+        font-size: 2rem;
+        color: #eceff4;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background-color: #2e3440;
+      }
+
+      .wrapper {
+        display: grid;
+        width: 100%;
+        height: 100%;
+        gap: 25px;
+        padding: 25px;
+        grid-template-areas:
+          "up down"
+          "left right"
+          "pause pause";
+      }
+
+      .pause {
+        grid-area: pause;
+      }
+
+      .left {
+        grid-area: left;
+      }
+
+      .right {
+        grid-area: right;
+      }
+
+      .up {
+        grid-area: up;
+      }
+
+      .down {
+        grid-area: down;
+      }
+
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 30px;
+        background-color: #3b4252;
+        border: 2px solid #434c5e;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrapper">
+      <div id="up" class="up btn"><i class="fas fa-arrow-up"></i></div>
+      <div id="down" class="down btn"><i class="fas fa-arrow-down"></i></div>
+      <div id="left" class="left btn"><i class="fas fa-arrow-left"></i></div>
+      <div id="right" class="right btn"><i class="fas fa-arrow-right"></i></div>
+      <div id="pause" class="pause btn"><i class="fas fa-minus"></i></div>
+    </div>
+    <script>
+      const connection = new WebSocket(
+        `${window.location.origin.replace("http", "ws")}/ws`
+      );
+
+      document.getElementById("pause").addEventListener("click", () => {
+        connection.send("pause");
+      });
+
+      document.getElementById("left").addEventListener("click", () => {
+        connection.send("left");
+      });
+
+      document.getElementById("right").addEventListener("click", () => {
+        connection.send("right");
+      });
+
+      document.getElementById("up").addEventListener("click", () => {
+        connection.send("up");
+      });
+
+      document.getElementById("down").addEventListener("click", () => {
+        connection.send("down");
+      });
+    </script>
+  </body>
+</html>
