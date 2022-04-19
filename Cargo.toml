@@ -12,3 +12,16 @@ tokio = { version = "1", features = ["full"] }
 warp = "0.3.2"
 autopilot = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+
+[dependencies.windows]
+version = "0.35.0"
+features = [
+    "alloc",
+    "Win32_Foundation",
+    "Win32_Media_Audio_Endpoints",
+    "Win32_Media_Audio",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Com",
+    "Win32_System_Console",
+    "Win32_UI_Input_KeyboardAndMouse",
+]
