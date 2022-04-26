@@ -1,15 +1,31 @@
+mod volume;
+
+use askama::Template;
 use autopilot::key::Code;
-use autopilot::key::KeyCode::{self, DownArrow, LeftArrow, RightArrow, Space, UpArrow};
-
-use warp::ws::{Message, WebSocket};
-use warp::Filter;
-
+use autopilot::key::KeyCode::{self, LeftArrow, RightArrow, Space};
 use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
+use warp::Filter;
+use warp::ws::{Message, WebSocket};
+
+#[derive(Serialize, Deserialize)]
+struct WsMessage {
+    action: String,
+    data: Option<f32>,
+}
+
+#[derive(Template)]
+#[template(path = "remote.html")]
+struct RemoteTemplate {
+    volume: u32,
+}
 
 #[tokio::main]
 async fn main() {
-    // GET / -> index.html
-    let index = warp::path::end().and(warp::fs::file("./public/index.html"));
+    // GET / -> remote.html
+    let index = warp::path::end().map(|| RemoteTemplate {
+        volume: (volume::get().unwrap() * 100.) as u32,
+    });
 
     // GET /ws -> Initiate websocket connection
     let realtime = warp::path("ws")
@@ -48,12 +64,17 @@ fn handle_message(msg: Message) {
         return;
     };
 
-    match msg {
+    let p: WsMessage = serde_json::from_str(msg).unwrap();
+
+    match p.action.as_str() {
         "pause" => tap(Space),
         "right" => tap(RightArrow),
         "left" => tap(LeftArrow),
-        "up" => tap(UpArrow),
-        "down" => tap(DownArrow),
+        "vol" => {
+            let vol = p.data.unwrap() / 100.;
+            volume::set(vol).unwrap();
+            return;
+        }
         _ => return,
     };
 }
