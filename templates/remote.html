@@ -114,21 +114,25 @@
         `${window.location.origin.replace("http", "ws")}/ws`
       );
 
+      function send(msg) {
+        connection.send(JSON.stringify(msg));
+      }
+
       document.getElementById("pause").addEventListener("click", () => {
-        connection.send(JSON.stringify({ action: "pause" }));
+        send({ action: "pause" });
       });
 
       document.getElementById("left").addEventListener("click", () => {
-        connection.send(JSON.stringify({ action: "left" }));
+        send({ action: "left" });
       });
 
       document.getElementById("right").addEventListener("click", () => {
-        connection.send(JSON.stringify({ action: "right" }));
+        send({ action: "right" });
       });
 
       document.getElementById("vol").oninput = function () {
         document.getElementById("volume").innerText = this.value;
-        connection.send(JSON.stringify({ action: "vol", data: +this.value }));
+        send({ action: "vol", data: +this.value });
       };
     </script>
   </body>
