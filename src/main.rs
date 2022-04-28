@@ -5,8 +5,8 @@ use autopilot::key::Code;
 use autopilot::key::KeyCode::{self, LeftArrow, RightArrow, Space};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use warp::Filter;
 use warp::ws::{Message, WebSocket};
+use warp::Filter;
 
 #[derive(Serialize, Deserialize)]
 struct WsMessage {
@@ -70,6 +70,14 @@ fn handle_message(msg: Message) {
         "pause" => tap(Space),
         "right" => tap(RightArrow),
         "left" => tap(LeftArrow),
+        "mute" => {
+            volume::mute().unwrap();
+            return;
+        }
+        "unmute" => {
+            volume::unmute().unwrap();
+            return;
+        }
         "vol" => {
             let vol = p.data.unwrap() / 100.;
             volume::set(vol).unwrap();

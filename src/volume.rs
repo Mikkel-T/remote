@@ -30,3 +30,11 @@ pub fn set(vol: f32) -> Result<()> {
             .SetMasterVolumeLevelScalar(vol, core::ptr::null())
     }
 }
+
+pub fn mute() -> Result<()> {
+    unsafe { get_endpoint().unwrap().SetMute(true, core::ptr::null()) }
+}
+
+pub fn unmute() -> Result<()> {
+    unsafe { get_endpoint().unwrap().SetMute(false, core::ptr::null()) }
+}
