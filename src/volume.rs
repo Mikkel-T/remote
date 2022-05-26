@@ -3,6 +3,7 @@ use windows::Win32::Media::Audio::Endpoints::*;
 use windows::Win32::Media::Audio::*;
 use windows::Win32::System::Com::*;
 
+/// Gets the Windows `IAudioEndpointVolume` that controls the main audio.
 fn get_endpoint() -> Result<IAudioEndpointVolume> {
     unsafe {
         CoInitializeEx(std::ptr::null_mut(), COINIT_MULTITHREADED)?;
@@ -20,9 +21,12 @@ fn get_endpoint() -> Result<IAudioEndpointVolume> {
     }
 }
 
+/// Get the current volume
 pub fn get() -> Result<f32> {
     unsafe { get_endpoint().unwrap().GetMasterVolumeLevelScalar() }
 }
+
+/// Set the volume
 pub fn set(vol: f32) -> Result<()> {
     unsafe {
         get_endpoint()
@@ -31,10 +35,12 @@ pub fn set(vol: f32) -> Result<()> {
     }
 }
 
+/// Mute the speaker
 pub fn mute() -> Result<()> {
     unsafe { get_endpoint().unwrap().SetMute(true, core::ptr::null()) }
 }
 
+/// Unmute the speaker
 pub fn unmute() -> Result<()> {
     unsafe { get_endpoint().unwrap().SetMute(false, core::ptr::null()) }
 }

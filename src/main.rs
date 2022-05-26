@@ -9,6 +9,7 @@ use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
 #[derive(Serialize, Deserialize)]
+/// The data that a WebSocket message should have to be understood by the `handle_message` function
 struct WsMessage {
     action: String,
     data: Option<f32>,
@@ -16,6 +17,7 @@ struct WsMessage {
 
 #[derive(Template)]
 #[template(path = "remote.html")]
+/// The data that should be passed when rendering the remote template
 struct RemoteTemplate {
     volume: u32,
 }
@@ -42,6 +44,7 @@ fn tap(key: KeyCode) -> String {
     String::from(format!("Tapped {:?}", key))
 }
 
+/// The WebSocket loop. Runs the `handle_message` function each time something is sent from the client.
 async fn ws_connected(ws: WebSocket) {
     let (_, mut rx) = ws.split();
     while let Some(result) = rx.next().await {
@@ -57,6 +60,7 @@ async fn ws_connected(ws: WebSocket) {
     }
 }
 
+/// Function to handle the WebSocket messages and act on the messages.
 fn handle_message(msg: Message) {
     let msg = if let Ok(s) = msg.to_str() {
         s
