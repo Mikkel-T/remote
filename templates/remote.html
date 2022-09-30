@@ -31,9 +31,43 @@
         gap: 25px;
         padding: 25px;
         grid-template-areas:
-          "up down"
+          "pause pause"
           "left right"
-          "pause pause";
+          "vol vol"
+          "mute unmute";
+      }
+
+      .vol-field {
+        grid-area: vol;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      .vol {
+        width: 100%;
+        -webkit-appearance: none;
+        height: 20px;
+        margin-bottom: 30px;
+        border-radius: 5px;
+        background-color: #eceff4;
+      }
+
+      #volume {
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: 700;
+        font-size: 2.5rem;
+      }
+
+      .vol::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 15px;
+        height: 40px;
+        background: #5e81ac;
+        border-radius: 10px;
+        cursor: pointer;
       }
 
       .pause {
@@ -48,12 +82,12 @@
         grid-area: right;
       }
 
-      .up {
-        grid-area: up;
+      .mute {
+        grid-area: mute;
       }
 
-      .down {
-        grid-area: down;
+      .unmute {
+        grid-area: unmute;
       }
 
       .btn {
@@ -69,36 +103,56 @@
 
   <body>
     <div class="wrapper">
-      <div id="up" class="up btn"><i class="fas fa-arrow-up"></i></div>
-      <div id="down" class="down btn"><i class="fas fa-arrow-down"></i></div>
+      <div class="vol-field">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value="{{ volume }}"
+          class="vol"
+          id="vol"
+        />
+        <span id="volume">{{ volume }}</span>
+      </div>
       <div id="left" class="left btn"><i class="fas fa-arrow-left"></i></div>
       <div id="right" class="right btn"><i class="fas fa-arrow-right"></i></div>
       <div id="pause" class="pause btn"><i class="fas fa-minus"></i></div>
+      <div id="mute" class="mute btn"><i class="fas fa-volume-mute"></i></div>
+      <div id="unmute" class="unmute btn"><i class="fas fa-volume-high"></i></div>
     </div>
     <script>
       const connection = new WebSocket(
         `${window.location.origin.replace("http", "ws")}/ws`
       );
 
+      function send(msg) {
+        connection.send(JSON.stringify(msg));
+      }
+
       document.getElementById("pause").addEventListener("click", () => {
-        connection.send("pause");
+        send({ action: "pause" });
       });
 
       document.getElementById("left").addEventListener("click", () => {
-        connection.send("left");
+        send({ action: "left" });
       });
 
       document.getElementById("right").addEventListener("click", () => {
-        connection.send("right");
+        send({ action: "right" });
       });
 
-      document.getElementById("up").addEventListener("click", () => {
-        connection.send("up");
+      document.getElementById("mute").addEventListener("click", () => {
+        send({ action: "mute" });
       });
 
-      document.getElementById("down").addEventListener("click", () => {
-        connection.send("down");
+      document.getElementById("unmute").addEventListener("click", () => {
+        send({ action: "unmute" });
       });
+
+      document.getElementById("vol").oninput = function () {
+        document.getElementById("volume").innerText = this.value;
+        send({ action: "vol", data: +this.value });
+      };
     </script>
   </body>
 </html>

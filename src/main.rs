@@ -1,15 +1,33 @@
-use autopilot::key::Code;
-use autopilot::key::KeyCode::{self, DownArrow, LeftArrow, RightArrow, Space, UpArrow};
+mod volume;
 
+use askama::Template;
+use autopilot::key::Code;
+use autopilot::key::KeyCode::{self, LeftArrow, RightArrow, Space};
+use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use futures_util::StreamExt;
+#[derive(Serialize, Deserialize)]
+/// The data that a WebSocket message should have to be understood by the `handle_message` function
+struct WsMessage {
+    action: String,
+    data: Option<f32>,
+}
+
+#[derive(Template)]
+#[template(path = "remote.html")]
+/// The data that should be passed when rendering the remote template
+struct RemoteTemplate {
+    volume: u32,
+}
 
 #[tokio::main]
 async fn main() {
-    // GET / -> index.html
-    let index = warp::path::end().and(warp::fs::file("./public/index.html"));
+    // GET / -> remote.html
+    let index = warp::path::end().map(|| RemoteTemplate {
+        volume: (volume::get().unwrap() * 100.) as u32,
+    });
 
     // GET /ws -> Initiate websocket connection
     let realtime = warp::path("ws")
@@ -26,6 +44,7 @@ fn tap(key: KeyCode) -> String {
     String::from(format!("Tapped {:?}", key))
 }
 
+/// The WebSocket loop. Runs the `handle_message` function each time something is sent from the client.
 async fn ws_connected(ws: WebSocket) {
     let (_, mut rx) = ws.split();
     while let Some(result) = rx.next().await {
@@ -41,6 +60,7 @@ async fn ws_connected(ws: WebSocket) {
     }
 }
 
+/// Function to handle the WebSocket messages and act on the messages.
 fn handle_message(msg: Message) {
     let msg = if let Ok(s) = msg.to_str() {
         s
@@ -48,12 +68,25 @@ fn handle_message(msg: Message) {
         return;
     };
 
-    match msg {
+    let p: WsMessage = serde_json::from_str(msg).unwrap();
+
+    match p.action.as_str() {
         "pause" => tap(Space),
         "right" => tap(RightArrow),
         "left" => tap(LeftArrow),
-        "up" => tap(UpArrow),
-        "down" => tap(DownArrow),
+        "mute" => {
+            volume::mute().unwrap();
+            return;
+        }
+        "unmute" => {
+            volume::unmute().unwrap();
+            return;
+        }
+        "vol" => {
+            let vol = p.data.unwrap() / 100.;
+            volume::set(vol).unwrap();
+            return;
+        }
         _ => return,
     };
 }
