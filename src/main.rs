@@ -32,16 +32,15 @@ async fn main() {
     // GET /ws -> Initiate websocket connection
     let realtime = warp::path("ws")
         .and(warp::ws())
-        .map(|ws: warp::ws::Ws| ws.on_upgrade(move |socket| ws_connected(socket)));
+        .map(|ws: warp::ws::Ws| ws.on_upgrade(ws_connected));
 
     let routes = index.or(realtime);
 
     warp::serve(routes).run(([0, 0, 0, 0], 8080)).await;
 }
 
-fn tap(key: KeyCode) -> String {
+fn tap(key: KeyCode) {
     autopilot::key::tap(&Code(key), &[], 0, 0);
-    String::from(format!("Tapped {:?}", key))
 }
 
 /// The WebSocket loop. Runs the `handle_message` function each time something is sent from the client.
@@ -51,7 +50,7 @@ async fn ws_connected(ws: WebSocket) {
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
-                eprintln!("websocket error: {}", e);
+                eprintln!("websocket error: {e}");
                 break;
             }
         };
@@ -74,19 +73,9 @@ fn handle_message(msg: Message) {
         "pause" => tap(Space),
         "right" => tap(RightArrow),
         "left" => tap(LeftArrow),
-        "mute" => {
-            volume::mute().unwrap();
-            return;
-        }
-        "unmute" => {
-            volume::unmute().unwrap();
-            return;
-        }
-        "vol" => {
-            let vol = p.data.unwrap() / 100.;
-            volume::set(vol).unwrap();
-            return;
-        }
-        _ => return,
+        "mute" => volume::mute().unwrap(),
+        "unmute" => volume::unmute().unwrap(),
+        "vol" => volume::set(p.data.unwrap() / 100.).unwrap(),
+        _ => (),
     };
 }
