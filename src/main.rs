@@ -103,11 +103,9 @@ async fn ws_connected(ws: WebSocket, users: Users) {
         if let Some(MessageAction::Vol(vol)) = action {
             for (&uid, tx) in users.read().await.iter() {
                 if my_id != uid {
-                    if let Err(_disconnected) = tx.send(Message::text(vol.to_string())) {
-                        // The tx is disconnected, our `user_disconnected` code
-                        // should be happening in another task, nothing more to
-                        // do here.
-                    }
+                    tx.send(Message::text(vol.to_string())).unwrap_or_else(|e| {
+                        eprintln!("websocket send error: {}", e);
+                    });
                 }
             }
         }

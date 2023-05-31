@@ -122,8 +122,10 @@
         <i class="fas fa-volume-high"></i>
       </div>
     </div>
-    <script>
-      const connection = new WebSocket(
+    <script type="module">
+      import ReconnectingWebsocket from "https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/+esm";
+
+      const connection = new ReconnectingWebsocket(
         `${window.location.origin.replace("http", "ws")}/ws`
       );
 
