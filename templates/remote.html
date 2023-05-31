@@ -118,7 +118,9 @@
       <div id="right" class="right btn"><i class="fas fa-arrow-right"></i></div>
       <div id="pause" class="pause btn"><i class="fas fa-minus"></i></div>
       <div id="mute" class="mute btn"><i class="fas fa-volume-mute"></i></div>
-      <div id="unmute" class="unmute btn"><i class="fas fa-volume-high"></i></div>
+      <div id="unmute" class="unmute btn">
+        <i class="fas fa-volume-high"></i>
+      </div>
     </div>
     <script>
       const connection = new WebSocket(
@@ -128,6 +130,11 @@
       function send(msg) {
         connection.send(JSON.stringify(msg));
       }
+
+      connection.onmessage = (e) => {
+        document.getElementById("volume").innerText = e.data;
+        document.getElementById("vol").value = e.data;
+      };
 
       document.getElementById("pause").addEventListener("click", () => {
         send({ action: "pause" });

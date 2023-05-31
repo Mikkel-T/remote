@@ -3,10 +3,20 @@ mod volume;
 use askama::Template;
 use autopilot::key::Code;
 use autopilot::key::KeyCode::{self, LeftArrow, RightArrow, Space};
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use tokio::sync::{mpsc, RwLock};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
+
+type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
+static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Serialize, Deserialize)]
 /// The data that a WebSocket message should have to be understood by the `handle_message` function
@@ -22,8 +32,21 @@ struct RemoteTemplate {
     volume: u32,
 }
 
+#[derive(Clone, Copy)]
+enum MessageAction {
+    Pause,
+    Right,
+    Left,
+    Mute,
+    Unmute,
+    Vol(f32),
+}
+
 #[tokio::main]
 async fn main() {
+    let users = Users::default();
+    let users = warp::any().map(move || users.clone());
+
     // GET / -> remote.html
     let index = warp::path::end().map(|| RemoteTemplate {
         volume: (volume::get().unwrap() * 100.) as u32,
@@ -32,7 +55,8 @@ async fn main() {
     // GET /ws -> Initiate websocket connection
     let realtime = warp::path("ws")
         .and(warp::ws())
-        .map(|ws: warp::ws::Ws| ws.on_upgrade(ws_connected));
+        .and(users)
+        .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| ws_connected(socket, users)));
 
     let routes = index.or(realtime);
 
@@ -44,9 +68,28 @@ fn tap(key: KeyCode) {
 }
 
 /// The WebSocket loop. Runs the `handle_message` function each time something is sent from the client.
-async fn ws_connected(ws: WebSocket) {
-    let (_, mut rx) = ws.split();
-    while let Some(result) = rx.next().await {
+async fn ws_connected(ws: WebSocket, users: Users) {
+    let my_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
+
+    let (mut user_ws_tx, mut user_ws_rx) = ws.split();
+
+    let (tx, rx) = mpsc::unbounded_channel();
+    let mut rx = UnboundedReceiverStream::new(rx);
+
+    tokio::task::spawn(async move {
+        while let Some(message) = rx.next().await {
+            user_ws_tx
+                .send(message)
+                .unwrap_or_else(|e| {
+                    eprintln!("websocket send error: {}", e);
+                })
+                .await;
+        }
+    });
+
+    users.write().await.insert(my_id, tx);
+
+    while let Some(result) = user_ws_rx.next().await {
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
@@ -55,27 +98,54 @@ async fn ws_connected(ws: WebSocket) {
             }
         };
 
-        handle_message(msg);
+        let action = parse_message(msg);
+        handle_action(action);
+        if let Some(MessageAction::Vol(vol)) = action {
+            for (&uid, tx) in users.read().await.iter() {
+                if my_id != uid {
+                    if let Err(_disconnected) = tx.send(Message::text(vol.to_string())) {
+                        // The tx is disconnected, our `user_disconnected` code
+                        // should be happening in another task, nothing more to
+                        // do here.
+                    }
+                }
+            }
+        }
     }
+
+    users.write().await.remove(&my_id);
 }
 
 /// Function to handle the WebSocket messages and act on the messages.
-fn handle_message(msg: Message) {
+fn parse_message(msg: Message) -> Option<MessageAction> {
     let msg = if let Ok(s) = msg.to_str() {
         s
     } else {
-        return;
+        return None;
     };
 
     let p: WsMessage = serde_json::from_str(msg).unwrap();
 
     match p.action.as_str() {
-        "pause" => tap(Space),
-        "right" => tap(RightArrow),
-        "left" => tap(LeftArrow),
-        "mute" => volume::mute().unwrap(),
-        "unmute" => volume::unmute().unwrap(),
-        "vol" => volume::set(p.data.unwrap() / 100.).unwrap(),
-        _ => (),
-    };
+        "pause" => Some(MessageAction::Pause),
+        "right" => Some(MessageAction::Right),
+        "left" => Some(MessageAction::Left),
+        "mute" => Some(MessageAction::Mute),
+        "unmute" => Some(MessageAction::Unmute),
+        "vol" => Some(MessageAction::Vol(p.data.unwrap())),
+        _ => None,
+    }
+}
+
+fn handle_action(action: Option<MessageAction>) {
+    if let Some(a) = action {
+        match a {
+            MessageAction::Pause => tap(Space),
+            MessageAction::Right => tap(RightArrow),
+            MessageAction::Left => tap(LeftArrow),
+            MessageAction::Mute => volume::mute().unwrap(),
+            MessageAction::Unmute => volume::unmute().unwrap(),
+            MessageAction::Vol(vol) => volume::set(vol / 100.).unwrap(),
+        }
+    }
 }
