@@ -30,22 +30,18 @@
         height: 100%;
         gap: 25px;
         padding: 25px;
-        grid-template-areas:
-          "pause pause"
-          "left right"
-          "vol vol"
-          "mute unmute";
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .vol-field {
-        grid-area: vol;
+        grid-column: span 2;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
       }
 
-      .vol {
+      #vol {
         width: 100%;
         -webkit-appearance: none;
         height: 20px;
@@ -60,7 +56,7 @@
         font-size: 2.5rem;
       }
 
-      .vol::-webkit-slider-thumb {
+      #vol::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
         width: 15px;
@@ -71,63 +67,75 @@
       }
 
       .pause {
-        grid-area: pause;
+        grid-column: span 2;
       }
 
-      .left {
-        grid-area: left;
-      }
-
-      .right {
-        grid-area: right;
-      }
-
-      .mute {
-        grid-area: mute;
-      }
-
-      .unmute {
-        grid-area: unmute;
-      }
-
-      .btn {
+      button {
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 30px;
         background-color: #3b4252;
         border: 2px solid #434c5e;
+        cursor: pointer;
       }
     </style>
   </head>
 
   <body>
     <div class="wrapper">
+      {% if music %}
+      <button data-ws-send="playpause">
+        <i class="fas fa-play"></i><i class="fas fa-pause"></i>
+      </button>
+      <button data-ws-send="stop">
+        <i class="fas fa-stop"></i>
+      </button>
+      <button data-ws-send="prev">
+        <i class="fas fa-backward"></i>
+      </button>
+      <button data-ws-send="next">
+        <i class="fas fa-forward"></i>
+      </button>
+      {% else %}
+      <button id="pause" class="pause" data-ws-send="pause">
+        <i class="fas fa-minus"></i>
+      </button>
+      <button data-ws-send="left">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <button data-ws-send="right">
+        <i class="fas fa-arrow-right"></i>
+      </button>
+      {% endif %}
       <div class="vol-field">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value="{{ volume }}"
-          class="vol"
-          id="vol"
-        />
+        <input type="range" min="0" max="100" value="{{ volume }}" id="vol" />
         <span id="volume">{{ volume }}</span>
       </div>
-      <div id="left" class="left btn"><i class="fas fa-arrow-left"></i></div>
-      <div id="right" class="right btn"><i class="fas fa-arrow-right"></i></div>
-      <div id="pause" class="pause btn"><i class="fas fa-minus"></i></div>
-      <div id="mute" class="mute btn"><i class="fas fa-volume-mute"></i></div>
-      <div id="unmute" class="unmute btn">
+      <button data-ws-send="mute">
+        <i class="fas fa-volume-mute"></i>
+      </button>
+      <button data-ws-send="unmute">
         <i class="fas fa-volume-high"></i>
-      </div>
+      </button>
     </div>
+
     <script type="module">
       import ReconnectingWebsocket from "https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/+esm";
 
       const connection = new ReconnectingWebsocket(
         `${window.location.origin.replace("http", "ws")}/ws`
       );
+
+      const buttons = document.querySelectorAll("[data-ws-send]");
+
+      buttons.forEach((el) => {
+        el.onclick = () => {
+          const data = el.getAttribute("data-ws-send");
+
+          send({ action: data });
+        };
+      });
 
       function send(msg) {
         connection.send(JSON.stringify(msg));
@@ -137,26 +145,6 @@
         document.getElementById("volume").innerText = e.data;
         document.getElementById("vol").value = e.data;
       };
-
-      document.getElementById("pause").addEventListener("click", () => {
-        send({ action: "pause" });
-      });
-
-      document.getElementById("left").addEventListener("click", () => {
-        send({ action: "left" });
-      });
-
-      document.getElementById("right").addEventListener("click", () => {
-        send({ action: "right" });
-      });
-
-      document.getElementById("mute").addEventListener("click", () => {
-        send({ action: "mute" });
-      });
-
-      document.getElementById("unmute").addEventListener("click", () => {
-        send({ action: "unmute" });
-      });
 
       document.getElementById("vol").oninput = function () {
         document.getElementById("volume").innerText = this.value;
