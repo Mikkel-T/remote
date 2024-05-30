@@ -9,6 +9,8 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
+    <script src="https://unpkg.com/htmx.org@2.0.0-beta4"></script>
+    <script src="https://unpkg.com/htmx-ext-ws@2.0.0/ws.js"></script>
     <style>
       * {
         box-sizing: border-box;
@@ -33,7 +35,7 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .vol-field {
+      #vol-field {
         grid-column: span 2;
         display: flex;
         align-items: center;
@@ -41,9 +43,10 @@
         flex-direction: column;
       }
 
-      #vol {
+      [name="vol"] {
         width: 100%;
         -webkit-appearance: none;
+        appearance: none;
         height: 20px;
         margin-bottom: 30px;
         border-radius: 5px;
@@ -56,7 +59,7 @@
         font-size: 2.5rem;
       }
 
-      #vol::-webkit-slider-thumb {
+      [name="vol"]::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
         width: 15px;
@@ -66,7 +69,7 @@
         cursor: pointer;
       }
 
-      .pause {
+      [name="pause"] {
         grid-column: span 2;
       }
 
@@ -79,77 +82,65 @@
         border: 2px solid #434c5e;
         cursor: pointer;
       }
+
+      [name="playpause"] {
+        gap: 10px;
+      }
     </style>
   </head>
 
   <body>
-    <div class="wrapper">
+    <div class="wrapper" hx-ext="ws" ws-connect="/ws">
       {% if music %}
-      <button data-ws-send="playpause">
+      <button ws-send name="playpause">
         <i class="fas fa-play"></i><i class="fas fa-pause"></i>
       </button>
-      <button data-ws-send="stop">
+      <button ws-send name="stop">
         <i class="fas fa-stop"></i>
       </button>
-      <button data-ws-send="prev">
+      <button ws-send name="prev">
         <i class="fas fa-backward"></i>
       </button>
-      <button data-ws-send="next">
+      <button ws-send name="next">
         <i class="fas fa-forward"></i>
       </button>
       {% else %}
-      <button id="pause" class="pause" data-ws-send="pause">
+      <button id="pause" ws-send name="pause">
         <i class="fas fa-minus"></i>
       </button>
-      <button data-ws-send="left">
+      <button ws-send name="left">
         <i class="fas fa-arrow-left"></i>
       </button>
-      <button data-ws-send="right">
+      <button ws-send name="right">
         <i class="fas fa-arrow-right"></i>
       </button>
       {% endif %}
-      <div class="vol-field">
-        <input type="range" min="0" max="100" value="{{ volume }}" id="vol" />
+      <div id="vol-field">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value="{{ volume }}"
+          name="vol"
+          id="vol"
+          hx-trigger="input"
+          ws-send
+        />
         <span id="volume">{{ volume }}</span>
       </div>
-      <button data-ws-send="mute">
+      <button ws-send name="mute">
         <i class="fas fa-volume-mute"></i>
       </button>
-      <button data-ws-send="unmute">
+      <button ws-send name="unmute">
         <i class="fas fa-volume-high"></i>
       </button>
     </div>
 
-    <script type="module">
-      import ReconnectingWebsocket from "https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/+esm";
-
-      const connection = new ReconnectingWebsocket(
-        `${window.location.origin.replace("http", "ws")}/ws`
-      );
-
-      const buttons = document.querySelectorAll("[data-ws-send]");
-
-      buttons.forEach((el) => {
-        el.onclick = () => {
-          const data = el.getAttribute("data-ws-send");
-
-          send({ action: data });
-        };
+    <script>
+      htmx.on("htmx:wsBeforeMessage", (e) => {
+        document.getElementById("volume").innerText = e.detail.message;
+        document.getElementById("vol").value = e.detail.message;
       });
-
-      function send(msg) {
-        connection.send(JSON.stringify(msg));
-      }
-
-      connection.onmessage = (e) => {
-        document.getElementById("volume").innerText = e.data;
-        document.getElementById("vol").value = e.data;
-      };
-
-      document.getElementById("vol").oninput = function () {
-        document.getElementById("volume").innerText = this.value;
-        send({ action: "vol", data: +this.value });
-      };
     </script>
   </body>
 </html>

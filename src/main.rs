@@ -5,6 +5,7 @@ use askama::Template;
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use keyboard::{tap, KeyCode};
 use serde::{Deserialize, Serialize};
+use serde_json::{from_str, Value};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -57,7 +58,7 @@ async fn main() {
         .and(warp::query::<HashMap<String, String>>())
         .map(|p: HashMap<String, String>| RemoteTemplate {
             volume: (volume::get().unwrap() * 100.) as u32,
-            music: p.get("music").is_some(),
+            music: p.contains_key("music"),
         });
 
     // GET /ws -> Initiate websocket connection
@@ -106,12 +107,10 @@ async fn ws_connected(ws: WebSocket, users: Users) {
         let action = parse_message(msg);
         handle_action(action);
         if let Some(MessageAction::Vol(vol)) = action {
-            for (&uid, tx) in users.read().await.iter() {
-                if my_id != uid {
-                    tx.send(Message::text(vol.to_string())).unwrap_or_else(|e| {
-                        eprintln!("websocket send error: {}", e);
-                    });
-                }
+            for (&_uid, tx) in users.read().await.iter() {
+                tx.send(Message::text(vol.to_string())).unwrap_or_else(|e| {
+                    eprintln!("websocket send error: {}", e);
+                });
             }
         }
     }
@@ -127,20 +126,32 @@ fn parse_message(msg: Message) -> Option<MessageAction> {
         return None;
     };
 
-    let p: WsMessage = serde_json::from_str(msg).unwrap();
+    let p: Value = from_str(msg).unwrap();
 
-    match p.action.as_str() {
-        "pause" => Some(MessageAction::Pause),
-        "right" => Some(MessageAction::Right),
-        "left" => Some(MessageAction::Left),
-        "mute" => Some(MessageAction::Mute),
-        "unmute" => Some(MessageAction::Unmute),
-        "vol" => Some(MessageAction::Vol(p.data.unwrap())),
-        "playpause" => Some(MessageAction::PlayPause),
-        "next" => Some(MessageAction::Next),
-        "prev" => Some(MessageAction::Prev),
-        "stop" => Some(MessageAction::Stop),
-        _ => None,
+    if p["pause"].is_string() {
+        Some(MessageAction::Pause)
+    } else if p["right"].is_string() {
+        Some(MessageAction::Right)
+    } else if p["left"].is_string() {
+        Some(MessageAction::Left)
+    } else if p["mute"].is_string() {
+        Some(MessageAction::Mute)
+    } else if p["unmute"].is_string() {
+        Some(MessageAction::Unmute)
+    } else if p["vol"].is_string() {
+        Some(MessageAction::Vol(
+            p["vol"].as_str().unwrap().parse().unwrap(),
+        ))
+    } else if p["playpause"].is_string() {
+        Some(MessageAction::PlayPause)
+    } else if p["next"].is_string() {
+        Some(MessageAction::Next)
+    } else if p["prev"].is_string() {
+        Some(MessageAction::Prev)
+    } else if p["stop"].is_string() {
+        Some(MessageAction::Stop)
+    } else {
+        None
     }
 }
 
