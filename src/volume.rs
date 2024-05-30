@@ -12,7 +12,7 @@ use windows::{
 /// Gets the Windows `IAudioEndpointVolume` that controls the main audio.
 fn get_endpoint() -> Result<IAudioEndpointVolume> {
     unsafe {
-        CoInitializeEx(None, COINIT_MULTITHREADED)?;
+        CoInitializeEx(None, COINIT_MULTITHREADED).unwrap();
         let immde: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
         let imm = immde.GetDefaultAudioEndpoint(eRender, eMultimedia)?;
         imm.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None)
