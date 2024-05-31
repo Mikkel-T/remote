@@ -24,6 +24,8 @@
       body {
         height: 100%;
         background-color: #2e3440;
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: 700;
       }
 
       .wrapper {
@@ -54,8 +56,6 @@
       }
 
       #volume {
-        font-family: Arial, Helvetica, sans-serif;
-        font-weight: 700;
         font-size: 2.5rem;
       }
 
@@ -69,8 +69,27 @@
         cursor: pointer;
       }
 
-      [name="pause"] {
+      .double {
         grid-column: span 2;
+      }
+
+      .info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+      }
+
+      .title {
+        font-size: 1rem;
+      }
+
+      .artist {
+        font-weight: 400;
+        font-size: 0.5rem;
+        color: #b1b7c0;
       }
 
       button {
@@ -86,12 +105,25 @@
       [name="playpause"] {
         gap: 10px;
       }
+
+      .hidden {
+        display: none !important;
+      }
     </style>
   </head>
 
   <body>
     <div class="wrapper" hx-ext="ws" ws-connect="/ws">
-      {% if music %}
+      {% if media %}
+      <div
+        class="double info"
+        id="mediainfo"
+        hx-get="/mediainfo"
+        hx-trigger="every 2s"
+      >
+        {% if let Some(mediainfo) = mediainfo %} {{mediainfo}} {% endif %}
+      </div>
+      {% endif %} {% if music %}
       <button ws-send name="playpause">
         <i class="fas fa-play"></i><i class="fas fa-pause"></i>
       </button>
@@ -105,7 +137,7 @@
         <i class="fas fa-forward"></i>
       </button>
       {% else %}
-      <button id="pause" ws-send name="pause">
+      <button class="double" ws-send name="pause">
         <i class="fas fa-minus"></i>
       </button>
       <button ws-send name="left">

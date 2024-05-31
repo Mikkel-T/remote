@@ -26,5 +26,6 @@ features = [
     "Win32_System_Variant",
     "Win32_UI",
     "Win32_UI_Input",
-    "Win32_UI_Input_KeyboardAndMouse"
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Media_Control"
 ]

@@ -1,9 +1,11 @@
 mod keyboard;
+mod mediainfo;
 mod volume;
 
 use askama::Template;
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use keyboard::{tap, KeyCode};
+use mediainfo::{get_media_info, MediaInfo};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, Value};
 use std::collections::HashMap;
@@ -27,11 +29,20 @@ struct WsMessage {
 }
 
 #[derive(Template)]
-#[template(path = "remote.html")]
+#[template(path = "remote.html", escape = "none")]
 /// The data that should be passed when rendering the remote template
 struct RemoteTemplate {
     volume: u32,
     music: bool,
+    media: bool,
+    mediainfo: Option<MediaInfoTemplate>,
+}
+
+#[derive(Template)]
+#[template(path = "mediainfo.html")]
+/// The data that should be passed when rendering the remote template
+struct MediaInfoTemplate {
+    mediainfo: Option<MediaInfo>,
 }
 
 #[derive(Clone, Copy)]
@@ -59,6 +70,21 @@ async fn main() {
         .map(|p: HashMap<String, String>| RemoteTemplate {
             volume: (volume::get().unwrap() * 100.) as u32,
             music: p.contains_key("music"),
+            media: p.contains_key("media"),
+            mediainfo: if p.contains_key("media") {
+                Some(MediaInfoTemplate {
+                    mediainfo: get_media_info(),
+                })
+            } else {
+                None
+            },
+        });
+
+    // GET /mediainfo -> mediainfo.html
+    let media_info = warp::path("mediainfo")
+        .and(warp::path::end())
+        .map(|| MediaInfoTemplate {
+            mediainfo: get_media_info(),
         });
 
     // GET /ws -> Initiate websocket connection
@@ -68,7 +94,7 @@ async fn main() {
         .and(users)
         .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| ws_connected(socket, users)));
 
-    let routes = warp::get().and(index.or(realtime));
+    let routes = warp::get().and(index.or(media_info).or(realtime));
 
     warp::serve(routes).run(([0, 0, 0, 0], 8080)).await;
 }
