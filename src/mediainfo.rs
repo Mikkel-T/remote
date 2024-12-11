@@ -1,18 +1,51 @@
-use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+use serde::Serialize;
+use windows::{
+    Foundation::TypedEventHandler,
+    Media::Control::{
+        CurrentSessionChangedEventArgs, GlobalSystemMediaTransportControlsSessionManager,
+    },
+};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 
 pub struct MediaInfo {
     pub title: Option<String>,
     pub artist: Option<String>,
 }
 
-pub fn get_media_info() -> Option<MediaInfo> {
-    let session_manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
+pub fn get_session_manager() -> GlobalSystemMediaTransportControlsSessionManager {
+    GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .unwrap()
         .get()
-        .unwrap();
+        .unwrap()
+}
 
+pub fn get_event_handler<F>(
+    handler: F,
+) -> TypedEventHandler<
+    GlobalSystemMediaTransportControlsSessionManager,
+    CurrentSessionChangedEventArgs,
+>
+where
+    F: Fn(MediaInfo) + Send + 'static,
+{
+    TypedEventHandler::<
+        GlobalSystemMediaTransportControlsSessionManager,
+        CurrentSessionChangedEventArgs,
+    >::new(move |event, _| {
+        if let Some(session_manager) = event {
+            if let Some(mediainfo) = get_media_info(session_manager) {
+                handler(mediainfo);
+            }
+        }
+
+        Ok(())
+    })
+}
+
+pub fn get_media_info(
+    session_manager: &GlobalSystemMediaTransportControlsSessionManager,
+) -> Option<MediaInfo> {
     let session = session_manager.GetCurrentSession();
 
     if let Ok(session) = session {

@@ -9,8 +9,8 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
-    <script src="https://unpkg.com/htmx.org@2.0.0-beta4"></script>
-    <script src="https://unpkg.com/htmx-ext-ws@2.0.0/ws.js"></script>
+    <script src="https://unpkg.com/htmx.org@next"></script>
+    <script src="https://unpkg.com/htmx-ext-ws@latest/ws.js"></script>
     <style>
       * {
         box-sizing: border-box;
@@ -115,12 +115,7 @@
   <body>
     <div class="wrapper" hx-ext="ws" ws-connect="/ws">
       {% if media %}
-      <div
-        class="double info"
-        id="mediainfo"
-        hx-get="/mediainfo"
-        hx-trigger="every 2s"
-      >
+      <div class="double info" id="mediainfo">
         {% if let Some(mediainfo) = mediainfo %} {{mediainfo}} {% endif %}
       </div>
       {% endif %} {% if music %}
@@ -170,8 +165,23 @@
 
     <script>
       htmx.on("htmx:wsBeforeMessage", (e) => {
-        document.getElementById("volume").innerText = e.detail.message;
-        document.getElementById("vol").value = e.detail.message;
+        const obj = JSON.parse(e.detail.message);
+
+        if (obj.type === "mediainfo") {
+          const mediainfo = obj.data;
+          const title = document.querySelector(".title");
+          if (title && mediainfo.title) {
+            title.innerText = mediainfo.title;
+          }
+
+          const artist = document.querySelector(".artist");
+          if (artist && mediainfo.artist) {
+            artist.innerText = mediainfo.artist;
+          }
+        } else if (obj.type === "volume") {
+          document.getElementById("volume").innerText = obj.data;
+          document.getElementById("vol").value = obj.data;
+        }
       });
     </script>
   </body>

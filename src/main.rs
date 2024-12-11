@@ -5,9 +5,9 @@ mod volume;
 use askama::Template;
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use keyboard::{tap, KeyCode};
-use mediainfo::{get_media_info, MediaInfo};
+use mediainfo::{get_event_handler, get_media_info, get_session_manager, MediaInfo};
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, Value};
+use serde_json::{from_str, json, Value};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -40,7 +40,7 @@ struct RemoteTemplate {
 
 #[derive(Template)]
 #[template(path = "mediainfo.html")]
-/// The data that should be passed when rendering the remote template
+/// The data that should be passed when rendering the media info template
 struct MediaInfoTemplate {
     mediainfo: Option<MediaInfo>,
 }
@@ -59,10 +59,37 @@ enum MessageAction {
     Stop,
 }
 
+async fn send_message_to_all(users: Users, message: Message) {
+    for (_uid, tx) in users.read().await.iter() {
+        tx.send(message.clone()).unwrap_or_else(|e| {
+            eprintln!("websocket send error: {}", e);
+        });
+    }
+}
+
 #[tokio::main]
 async fn main() {
-    let users = Users::default();
-    let users = warp::any().map(move || users.clone());
+    let users_obj = Users::default();
+
+    let win_session_manager = get_session_manager();
+
+    let users_clone = users_obj.clone();
+    win_session_manager
+        .CurrentSessionChanged(&get_event_handler(move |info| {
+            let info_obj = json!({
+                "type": "mediainfo",
+                "data": info
+            });
+            let info_str = serde_json::to_string(&info_obj).unwrap();
+
+            futures::executor::block_on(send_message_to_all(
+                users_clone.clone(),
+                Message::text(info_str),
+            ));
+        }))
+        .unwrap();
+
+    let users = warp::any().map(move || users_obj.clone());
 
     // GET / -> remote.html
     let index = warp::path::end()
@@ -73,18 +100,11 @@ async fn main() {
             media: p.contains_key("media"),
             mediainfo: if p.contains_key("media") {
                 Some(MediaInfoTemplate {
-                    mediainfo: get_media_info(),
+                    mediainfo: get_media_info(&get_session_manager()),
                 })
             } else {
                 None
             },
-        });
-
-    // GET /mediainfo -> mediainfo.html
-    let media_info = warp::path("mediainfo")
-        .and(warp::path::end())
-        .map(|| MediaInfoTemplate {
-            mediainfo: get_media_info(),
         });
 
     // GET /ws -> Initiate websocket connection
@@ -94,7 +114,7 @@ async fn main() {
         .and(users)
         .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| ws_connected(socket, users)));
 
-    let routes = warp::get().and(index.or(media_info).or(realtime));
+    let routes = warp::get().and(index.or(realtime));
 
     warp::serve(routes).run(([0, 0, 0, 0], 8080)).await;
 }
@@ -133,11 +153,13 @@ async fn ws_connected(ws: WebSocket, users: Users) {
         let action = parse_message(msg);
         handle_action(action);
         if let Some(MessageAction::Vol(vol)) = action {
-            for (&_uid, tx) in users.read().await.iter() {
-                tx.send(Message::text(vol.to_string())).unwrap_or_else(|e| {
-                    eprintln!("websocket send error: {}", e);
-                });
-            }
+            let info_obj = json!({
+                "type": "volume",
+                "data": vol
+            });
+            let info_str = serde_json::to_string(&info_obj).unwrap();
+
+            send_message_to_all(users.clone(), Message::text(info_str)).await;
         }
     }
 
