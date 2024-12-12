@@ -1,4 +1,3 @@
-use serde::Serialize;
 use windows::{
     Foundation::TypedEventHandler,
     Media::Control::{
@@ -6,8 +5,7 @@ use windows::{
     },
 };
 
-#[derive(Clone, Serialize)]
-
+#[derive(Clone)]
 pub struct MediaInfo {
     pub title: Option<String>,
     pub artist: Option<String>,
@@ -54,14 +52,18 @@ pub fn get_media_info(
             let title = properties.Title().ok().unwrap().to_string();
             let artist = properties.Artist().ok().unwrap().to_string();
 
-            return Some(MediaInfo {
-                title: if title.is_empty() { None } else { Some(title) },
-                artist: if artist.is_empty() {
-                    None
-                } else {
-                    Some(artist)
-                },
-            });
+            if title.is_empty() && artist.is_empty() {
+                return None;
+            } else {
+                return Some(MediaInfo {
+                    title: if title.is_empty() { None } else { Some(title) },
+                    artist: if artist.is_empty() {
+                        None
+                    } else {
+                        Some(artist)
+                    },
+                });
+            }
         }
     }
 

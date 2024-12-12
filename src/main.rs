@@ -76,15 +76,14 @@ async fn main() {
     let users_clone = users_obj.clone();
     win_session_manager
         .CurrentSessionChanged(&get_event_handler(move |info| {
-            let info_obj = json!({
-                "type": "mediainfo",
-                "data": info
-            });
-            let info_str = serde_json::to_string(&info_obj).unwrap();
-
             futures::executor::block_on(send_message_to_all(
                 users_clone.clone(),
-                Message::text(info_str),
+                Message::text(format!(
+                    "<div id=\"mediainfo\" hx-swap-oob=\"innerHTML\">{}</div>",
+                    MediaInfoTemplate {
+                        mediainfo: Some(info),
+                    }
+                )),
             ));
         }))
         .unwrap();

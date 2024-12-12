@@ -1,8 +1,11 @@
-{% if let Some(mediainfo) = mediainfo %} {% if let Some(title) = mediainfo.title
-%}
-<p class="title">{{title}}</p>
-{%endif%} {% if let Some(artist) = mediainfo.artist %}
-<p class="artist">{{artist}}</p>
-{%endif%} {%else%}
-<p class="title">No media info</p>
+{% if let Some(mediainfo) = mediainfo %}
+  {% if let Some(title) = mediainfo.title %}
+    <p class="title">{{title}}</p>
+  {%endif%}
+
+  {% if let Some(artist) = mediainfo.artist %}
+    <p class="artist">{{artist}}</p>
+  {%endif%}
+{%else%}
+  <p class="title">No media info</p>
 {%endif%}

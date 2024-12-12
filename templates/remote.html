@@ -7,10 +7,10 @@
     <title>Remote</title>
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css"
     />
-    <script src="https://unpkg.com/htmx.org@next"></script>
-    <script src="https://unpkg.com/htmx-ext-ws@latest/ws.js"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <script src="https://unpkg.com/htmx-ext-ws@2.0.1/ws.js"></script>
     <style>
       * {
         box-sizing: border-box;
@@ -105,42 +105,39 @@
       [name="playpause"] {
         gap: 10px;
       }
-
-      .hidden {
-        display: none !important;
-      }
     </style>
   </head>
 
   <body>
     <div class="wrapper" hx-ext="ws" ws-connect="/ws">
       {% if media %}
-      <div class="double info" id="mediainfo">
-        {% if let Some(mediainfo) = mediainfo %} {{mediainfo}} {% endif %}
-      </div>
-      {% endif %} {% if music %}
-      <button ws-send name="playpause">
-        <i class="fas fa-play"></i><i class="fas fa-pause"></i>
-      </button>
-      <button ws-send name="stop">
-        <i class="fas fa-stop"></i>
-      </button>
-      <button ws-send name="prev">
-        <i class="fas fa-backward"></i>
-      </button>
-      <button ws-send name="next">
-        <i class="fas fa-forward"></i>
-      </button>
+        <div class="double info" id="mediainfo">
+          {% if let Some(mediainfo) = mediainfo %} {{mediainfo}} {% endif %}
+        </div>
+      {% endif %}
+      {% if music %}
+        <button ws-send name="playpause">
+          <i class="fas fa-play"></i><i class="fas fa-pause"></i>
+        </button>
+        <button ws-send name="stop">
+          <i class="fas fa-stop"></i>
+        </button>
+        <button ws-send name="prev">
+          <i class="fas fa-backward"></i>
+        </button>
+        <button ws-send name="next">
+          <i class="fas fa-forward"></i>
+        </button>
       {% else %}
-      <button class="double" ws-send name="pause">
-        <i class="fas fa-minus"></i>
-      </button>
-      <button ws-send name="left">
-        <i class="fas fa-arrow-left"></i>
-      </button>
-      <button ws-send name="right">
-        <i class="fas fa-arrow-right"></i>
-      </button>
+        <button class="double" ws-send name="pause">
+          <i class="fas fa-minus"></i>
+        </button>
+        <button ws-send name="left">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <button ws-send name="right">
+          <i class="fas fa-arrow-right"></i>
+        </button>
       {% endif %}
       <div id="vol-field">
         <input
@@ -165,22 +162,13 @@
 
     <script>
       htmx.on("htmx:wsBeforeMessage", (e) => {
-        const obj = JSON.parse(e.detail.message);
+        if (e.detail.message.startsWith("{")) {
+          const obj = JSON.parse(e.detail.message);
 
-        if (obj.type === "mediainfo") {
-          const mediainfo = obj.data;
-          const title = document.querySelector(".title");
-          if (title && mediainfo.title) {
-            title.innerText = mediainfo.title;
+          if (obj.type === "volume") {
+            document.getElementById("volume").innerText = obj.data;
+            document.getElementById("vol").value = obj.data;
           }
-
-          const artist = document.querySelector(".artist");
-          if (artist && mediainfo.artist) {
-            artist.innerText = mediainfo.artist;
-          }
-        } else if (obj.type === "volume") {
-          document.getElementById("volume").innerText = obj.data;
-          document.getElementById("vol").value = obj.data;
         }
       });
     </script>
