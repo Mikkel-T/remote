@@ -5,20 +5,25 @@ mod volume;
 use askama::Template;
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use keyboard::{tap, KeyCode};
-use mediainfo::{get_event_handler, get_media_info, get_session_manager, MediaInfo};
+use mediainfo::{get_media_info, get_session_manager, listen_media_info, MediaInfo};
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, json, Value};
-use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
+use serde_json::{from_str, Value};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use warp::ws::{Message, WebSocket};
-use warp::Filter;
+use volume::listen_volume;
+use warp::{
+    ws::{Message, WebSocket},
+    Filter,
+};
 
-type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
+pub type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Serialize, Deserialize)]
@@ -41,7 +46,7 @@ struct RemoteTemplate {
 #[derive(Template)]
 #[template(path = "mediainfo.html")]
 /// The data that should be passed when rendering the media info template
-struct MediaInfoTemplate {
+pub struct MediaInfoTemplate {
     mediainfo: Option<MediaInfo>,
 }
 
@@ -59,7 +64,7 @@ enum MessageAction {
     Stop,
 }
 
-async fn send_message_to_all(users: Users, message: Message) {
+pub async fn send_message_to_all(users: Users, message: Message) {
     for (_uid, tx) in users.read().await.iter() {
         tx.send(message.clone()).unwrap_or_else(|e| {
             eprintln!("websocket send error: {}", e);
@@ -71,22 +76,9 @@ async fn send_message_to_all(users: Users, message: Message) {
 async fn main() {
     let users_obj = Users::default();
 
-    let win_session_manager = get_session_manager();
-
-    let users_clone = users_obj.clone();
-    win_session_manager
-        .CurrentSessionChanged(&get_event_handler(move |info| {
-            futures::executor::block_on(send_message_to_all(
-                users_clone.clone(),
-                Message::text(format!(
-                    "<div id=\"mediainfo\" hx-swap-oob=\"innerHTML\">{}</div>",
-                    MediaInfoTemplate {
-                        mediainfo: Some(info),
-                    }
-                )),
-            ));
-        }))
-        .unwrap();
+    // We need to keep the listeners in scope, so we assign the variables
+    let _media_session_manager = listen_media_info(users_obj.clone());
+    let _vol_endpoint = listen_volume(users_obj.clone());
 
     let users = warp::any().map(move || users_obj.clone());
 
@@ -151,15 +143,6 @@ async fn ws_connected(ws: WebSocket, users: Users) {
 
         let action = parse_message(msg);
         handle_action(action);
-        if let Some(MessageAction::Vol(vol)) = action {
-            let info_obj = json!({
-                "type": "volume",
-                "data": vol
-            });
-            let info_str = serde_json::to_string(&info_obj).unwrap();
-
-            send_message_to_all(users.clone(), Message::text(info_str)).await;
-        }
     }
 
     users.write().await.remove(&my_id);

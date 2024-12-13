@@ -1,4 +1,7 @@
+use crate::{send_message_to_all, MediaInfoTemplate, Users};
+use warp::filters::ws::Message;
 use windows::{
+    core::Result,
     Foundation::TypedEventHandler,
     Media::Control::{
         CurrentSessionChangedEventArgs, GlobalSystemMediaTransportControlsSessionManager,
@@ -11,34 +14,36 @@ pub struct MediaInfo {
     pub artist: Option<String>,
 }
 
+pub fn listen_media_info(users: Users) -> Result<GlobalSystemMediaTransportControlsSessionManager> {
+    let session_manager = get_session_manager();
+
+    session_manager.CurrentSessionChanged(&TypedEventHandler::<
+        GlobalSystemMediaTransportControlsSessionManager,
+        CurrentSessionChangedEventArgs,
+    >::new(move |event, _| {
+        if let Some(session_manager) = event {
+            futures::executor::block_on(send_message_to_all(
+                users.clone(),
+                Message::text(format!(
+                    "<div id=\"mediainfo\" hx-swap-oob=\"innerHTML\">{}</div>",
+                    MediaInfoTemplate {
+                        mediainfo: get_media_info(session_manager),
+                    }
+                )),
+            ));
+        }
+
+        Ok(())
+    }))?;
+
+    Ok(session_manager)
+}
+
 pub fn get_session_manager() -> GlobalSystemMediaTransportControlsSessionManager {
     GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .unwrap()
         .get()
         .unwrap()
-}
-
-pub fn get_event_handler<F>(
-    handler: F,
-) -> TypedEventHandler<
-    GlobalSystemMediaTransportControlsSessionManager,
-    CurrentSessionChangedEventArgs,
->
-where
-    F: Fn(MediaInfo) + Send + 'static,
-{
-    TypedEventHandler::<
-        GlobalSystemMediaTransportControlsSessionManager,
-        CurrentSessionChangedEventArgs,
-    >::new(move |event, _| {
-        if let Some(session_manager) = event {
-            if let Some(mediainfo) = get_media_info(session_manager) {
-                handler(mediainfo);
-            }
-        }
-
-        Ok(())
-    })
 }
 
 pub fn get_media_info(
