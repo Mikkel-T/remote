@@ -1,11 +1,13 @@
+mod frontend;
 mod keyboard;
 mod mediainfo;
 mod volume;
 
-use askama::Template;
+use frontend::{MediaInfo, Remote};
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use keyboard::{tap, KeyCode};
-use mediainfo::{get_media_info, get_session_manager, listen_media_info, MediaInfo};
+use maud::html;
+use mediainfo::{get_media_info, get_session_manager, listen_media_info};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, Value};
 use std::{
@@ -26,28 +28,14 @@ use warp::{
 pub type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
+const CSS: &str = include_str!("../public/main.css");
+const JS: &str = include_str!("../public/main.js");
+
 #[derive(Serialize, Deserialize)]
 /// The data that a WebSocket message should have to be understood by the `parse_message` function
 struct WsMessage {
     action: String,
     data: Option<f32>,
-}
-
-#[derive(Template)]
-#[template(path = "remote.html", escape = "none")]
-/// The data that should be passed when rendering the remote template
-struct RemoteTemplate {
-    volume: u32,
-    music: bool,
-    media: bool,
-    mediainfo: Option<MediaInfoTemplate>,
-}
-
-#[derive(Template)]
-#[template(path = "mediainfo.html")]
-/// The data that should be passed when rendering the media info template
-pub struct MediaInfoTemplate {
-    mediainfo: Option<MediaInfo>,
 }
 
 #[derive(Clone, Copy)]
@@ -85,17 +73,19 @@ async fn main() {
     // GET / -> remote.html
     let index = warp::path::end()
         .and(warp::query::<HashMap<String, String>>())
-        .map(|p: HashMap<String, String>| RemoteTemplate {
-            volume: (volume::get().unwrap() * 100.) as u32,
-            music: p.contains_key("music"),
-            media: p.contains_key("media"),
-            mediainfo: if p.contains_key("media") {
-                Some(MediaInfoTemplate {
-                    mediainfo: get_media_info(&get_session_manager()),
-                })
-            } else {
-                None
-            },
+        .map(|p: HashMap<String, String>| {
+            html! {(Remote {
+                volume: (volume::get().unwrap() * 100.) as u32,
+                music: p.contains_key("music"),
+                media: p.contains_key("media"),
+                mediainfo: if p.contains_key("media") {
+                    Some(MediaInfo {
+                        mediainfo: get_media_info(&get_session_manager()),
+                    })
+                } else {
+                    None
+                },
+            })}
         });
 
     // GET /ws -> Initiate websocket connection
@@ -105,7 +95,15 @@ async fn main() {
         .and(users)
         .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| ws_connected(socket, users)));
 
-    let routes = warp::get().and(index.or(realtime));
+    // GET /main.css -> CSS
+    let css =
+        warp::path("main.css").map(|| warp::reply::with_header(CSS, "content-type", "text/css"));
+
+    // GET /main.js -> JS
+    let js = warp::path("main.js")
+        .map(|| warp::reply::with_header(JS, "content-type", "text/javascript"));
+
+    let routes = warp::get().and(index.or(realtime).or(css).or(js));
 
     warp::serve(routes).run(([0, 0, 0, 0], 8080)).await;
 }

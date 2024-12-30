@@ -1,4 +1,5 @@
-use crate::{send_message_to_all, MediaInfoTemplate, Users};
+use crate::{send_message_to_all, MediaInfo as MediaInfoHTML, Users};
+use maud::Render;
 use warp::filters::ws::Message;
 use windows::{
     core::Result,
@@ -26,9 +27,11 @@ pub fn listen_media_info(users: Users) -> Result<GlobalSystemMediaTransportContr
                 users.clone(),
                 Message::text(format!(
                     "<div id=\"mediainfo\" hx-swap-oob=\"innerHTML\">{}</div>",
-                    MediaInfoTemplate {
+                    MediaInfoHTML {
                         mediainfo: get_media_info(session_manager),
                     }
+                    .render()
+                    .into_string()
                 )),
             ));
         }
