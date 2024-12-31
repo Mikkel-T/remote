@@ -1,4 +1,7 @@
-use crate::frontend::{Button, Head, MediaInfo};
+use crate::{
+    frontend::{Button, Head},
+    mediainfo::MediaInfo,
+};
 use maud::{html, Markup, Render, DOCTYPE};
 
 pub struct Remote {

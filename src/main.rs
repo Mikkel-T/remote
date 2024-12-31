@@ -3,11 +3,11 @@ mod keyboard;
 mod mediainfo;
 mod volume;
 
-use frontend::{MediaInfo, Remote};
+use frontend::Remote;
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use keyboard::{tap, KeyCode};
 use maud::html;
-use mediainfo::{get_media_info, get_session_manager, listen_media_info};
+use mediainfo::{listen_media_info, MediaInfo};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, Value};
 use std::{
@@ -79,9 +79,7 @@ async fn main() {
                 music: p.contains_key("music"),
                 media: p.contains_key("media"),
                 mediainfo: if p.contains_key("media") {
-                    Some(MediaInfo {
-                        mediainfo: get_media_info(&get_session_manager()),
-                    })
+                    Some(MediaInfo::new(None))
                 } else {
                     None
                 },

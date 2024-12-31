@@ -1,5 +1,5 @@
-use crate::{send_message_to_all, MediaInfo as MediaInfoHTML, Users};
-use maud::Render;
+use crate::{send_message_to_all, Users};
+use maud::{html, Markup, Render};
 use warp::filters::ws::Message;
 use windows::{
     core::Result,
@@ -9,10 +9,64 @@ use windows::{
     },
 };
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MediaInfo {
-    pub title: Option<String>,
-    pub artist: Option<String>,
+    title: Option<String>,
+    artist: Option<String>,
+}
+
+impl MediaInfo {
+    pub fn new(session_manager: Option<&GlobalSystemMediaTransportControlsSessionManager>) -> Self {
+        let session = if let Some(session_m) = session_manager {
+            session_m.GetCurrentSession()
+        } else {
+            get_session_manager().GetCurrentSession()
+        };
+
+        if let Ok(session) = session {
+            let properties = session.TryGetMediaPropertiesAsync().ok().unwrap().get();
+            if let Ok(properties) = properties {
+                let title = properties.Title().ok().unwrap().to_string();
+                let artist = properties.Artist().ok().unwrap().to_string();
+
+                if title.is_empty() && artist.is_empty() {
+                    return Self::default();
+                } else {
+                    return MediaInfo {
+                        title: if title.is_empty() { None } else { Some(title) },
+                        artist: if artist.is_empty() {
+                            None
+                        } else {
+                            Some(artist)
+                        },
+                    };
+                }
+            }
+        }
+
+        Self::default()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.title.is_none() && self.artist.is_none()
+    }
+}
+
+impl Render for MediaInfo {
+    fn render(&self) -> Markup {
+        html! {
+          @if !self.is_empty() {
+            @if let Some(title) = &self.title {
+              p.title { (title) }
+            }
+            @if let Some(artist) = &self.artist {
+              p.artist { (artist) }
+            }
+          } @else {
+            p.title { "No media info" }
+          }
+        }
+    }
 }
 
 pub fn listen_media_info(users: Users) -> Result<GlobalSystemMediaTransportControlsSessionManager> {
@@ -25,14 +79,11 @@ pub fn listen_media_info(users: Users) -> Result<GlobalSystemMediaTransportContr
         if let Some(session_manager) = event {
             futures::executor::block_on(send_message_to_all(
                 users.clone(),
-                Message::text(format!(
-                    "<div id=\"mediainfo\" hx-swap-oob=\"innerHTML\">{}</div>",
-                    MediaInfoHTML {
-                        mediainfo: get_media_info(session_manager),
+                Message::text(html! {
+                    dix #mediainfo hx-swap-oob="innerHTML" {
+                        (MediaInfo::new(Some(session_manager)))
                     }
-                    .render()
-                    .into_string()
-                )),
+                }),
             ));
         }
 
@@ -42,38 +93,9 @@ pub fn listen_media_info(users: Users) -> Result<GlobalSystemMediaTransportContr
     Ok(session_manager)
 }
 
-pub fn get_session_manager() -> GlobalSystemMediaTransportControlsSessionManager {
+fn get_session_manager() -> GlobalSystemMediaTransportControlsSessionManager {
     GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .unwrap()
         .get()
         .unwrap()
-}
-
-pub fn get_media_info(
-    session_manager: &GlobalSystemMediaTransportControlsSessionManager,
-) -> Option<MediaInfo> {
-    let session = session_manager.GetCurrentSession();
-
-    if let Ok(session) = session {
-        let properties = session.TryGetMediaPropertiesAsync().ok().unwrap().get();
-        if let Ok(properties) = properties {
-            let title = properties.Title().ok().unwrap().to_string();
-            let artist = properties.Artist().ok().unwrap().to_string();
-
-            if title.is_empty() && artist.is_empty() {
-                return None;
-            } else {
-                return Some(MediaInfo {
-                    title: if title.is_empty() { None } else { Some(title) },
-                    artist: if artist.is_empty() {
-                        None
-                    } else {
-                        Some(artist)
-                    },
-                });
-            }
-        }
-    }
-
-    None
 }
