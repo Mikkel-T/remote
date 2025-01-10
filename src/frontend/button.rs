@@ -42,15 +42,15 @@ impl Button {
 impl Render for Button {
     fn render(&self) -> Markup {
         html! {
-          @if self.double {
-            button.double ws-send name=(self.name) {
-              ( self.inner() )
+            @if self.double {
+                button.double ws-send name=(self.name) {
+                    ( self.inner() )
+                }
+            } @else {
+                button ws-send name=(self.name) {
+                    ( self.inner() )
+                }
             }
-          } @else {
-            button ws-send name=(self.name) {
-              ( self.inner() )
-            }
-          }
         }
     }
 }

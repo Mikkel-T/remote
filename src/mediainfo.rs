@@ -55,16 +55,16 @@ impl MediaInfo {
 impl Render for MediaInfo {
     fn render(&self) -> Markup {
         html! {
-          @if !self.is_empty() {
-            @if let Some(title) = &self.title {
-              p.title { (title) }
+            @if !self.is_empty() {
+                @if let Some(title) = &self.title {
+                    p.title { (title) }
+                }
+                @if let Some(artist) = &self.artist {
+                    p.artist { (artist) }
+                }
+            } @else {
+                p.title { "No media info" }
             }
-            @if let Some(artist) = &self.artist {
-              p.artist { (artist) }
-            }
-          } @else {
-            p.title { "No media info" }
-          }
         }
     }
 }
