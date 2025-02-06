@@ -29,12 +29,12 @@ impl Button {
 
     fn inner(&self) -> Markup {
         html! {
-          @if let Some(icon2) = self.icon2 {
-            i.fas.{"fa-" (self.icon)} { "" }
-            i.fas.{"fa-" (icon2)} { "" }
-          } @else {
-            i.fas.{"fa-" (self.icon)} { "" }
-          }
+            @if let Some(icon2) = self.icon2 {
+                i.fas.{"fa-" (self.icon)} { "" }
+                i.fas.{"fa-" (icon2)} { "" }
+            } @else {
+                i.fas.{"fa-" (self.icon)} { "" }
+            }
         }
     }
 }

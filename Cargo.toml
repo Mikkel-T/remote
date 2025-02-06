@@ -10,7 +10,7 @@ edition = "2021"
 [dependencies]
 futures = "0.3.31"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
-maud = { version = "0.26.0", features = ["warp"] }
+maud = { version = "0.27.0", features = ["warp"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
