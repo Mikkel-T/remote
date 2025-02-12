@@ -17,11 +17,10 @@ pub struct MediaInfo {
 
 impl MediaInfo {
     pub fn new(session_manager: Option<&GlobalSystemMediaTransportControlsSessionManager>) -> Self {
-        let session = if let Some(session_m) = session_manager {
-            session_m.GetCurrentSession()
-        } else {
-            get_session_manager().GetCurrentSession()
-        };
+        let session = session_manager.map_or_else(
+            || get_session_manager().GetCurrentSession(),
+            GlobalSystemMediaTransportControlsSessionManager::GetCurrentSession,
+        );
 
         if let Ok(session) = session {
             let properties = session.TryGetMediaPropertiesAsync().ok().unwrap().get();
@@ -31,16 +30,16 @@ impl MediaInfo {
 
                 if title.is_empty() && artist.is_empty() {
                     return Self::default();
-                } else {
-                    return MediaInfo {
-                        title: if title.is_empty() { None } else { Some(title) },
-                        artist: if artist.is_empty() {
-                            None
-                        } else {
-                            Some(artist)
-                        },
-                    };
                 }
+
+                return Self {
+                    title: if title.is_empty() { None } else { Some(title) },
+                    artist: if artist.is_empty() {
+                        None
+                    } else {
+                        Some(artist)
+                    },
+                };
             }
         }
 

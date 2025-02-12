@@ -55,7 +55,7 @@ enum MessageAction {
 pub async fn send_message_to_all(users: Users, message: Message) {
     for (_uid, tx) in users.read().await.iter() {
         tx.send(message.clone()).unwrap_or_else(|e| {
-            eprintln!("websocket send error: {}", e);
+            eprintln!("websocket send error: {e}");
         });
     }
 }
@@ -120,7 +120,7 @@ async fn ws_connected(ws: WebSocket, users: Users) {
             user_ws_tx
                 .send(message)
                 .unwrap_or_else(|e| {
-                    eprintln!("websocket send error: {}", e);
+                    eprintln!("websocket send error: {e}");
                 })
                 .await;
         }
@@ -137,7 +137,7 @@ async fn ws_connected(ws: WebSocket, users: Users) {
             }
         };
 
-        let action = parse_message(msg);
+        let action = parse_message(&msg);
         handle_action(action);
     }
 
@@ -145,10 +145,8 @@ async fn ws_connected(ws: WebSocket, users: Users) {
 }
 
 /// Function to handle the WebSocket messages and act on the messages.
-fn parse_message(msg: Message) -> Option<MessageAction> {
-    let msg = if let Ok(s) = msg.to_str() {
-        s
-    } else {
+fn parse_message(msg: &Message) -> Option<MessageAction> {
+    let Ok(msg) = msg.to_str() else {
         return None;
     };
 

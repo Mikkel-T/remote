@@ -8,8 +8,8 @@ pub struct Button {
 }
 
 impl Button {
-    pub fn new(name: &'static str, icon: &'static str) -> Button {
-        Button {
+    pub fn new(name: &'static str, icon: &'static str) -> Self {
+        Self {
             name,
             icon,
             icon2: None,

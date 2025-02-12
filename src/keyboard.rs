@@ -51,7 +51,7 @@ pub fn tap<T: Into<Key> + Copy>(key: T) {
 }
 
 impl From<KeyCode> for Key {
-    fn from(key: KeyCode) -> Key {
+    fn from(key: KeyCode) -> Self {
         match key {
             KeyCode::Space => VK_SPACE,
             KeyCode::Right => VK_RIGHT,
